@@ -17,9 +17,15 @@ app.use(cors());
 // Global objects to store room and user data
 let rooms = {};
 let users = {}; // This stores user information like name, language, and roomId
+let messages = {}; // Store messages for each room
 
 function generateRoomId() {
   return Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit ID
+}
+
+// Function to generate a unique message ID
+function generateMessageId() {
+  return `${Date.now()}-${Math.floor(Math.random() * 1000)}`; // Generates a unique ID
 }
 
 io.on("connection", (socket) => {
@@ -30,6 +36,7 @@ io.on("connection", (socket) => {
     const roomId = generateRoomId();
     rooms[roomId] = []; // Create an empty room
     users[socket.id] = { name, language, roomId }; // Store user info with language
+    messages[roomId] = []; // Initialize messages for the room
     socket.join(roomId); // Join the room
     console.log(
       `${name} created room ${roomId} and selected language ${language}`,
@@ -61,12 +68,33 @@ io.on("connection", (socket) => {
     if (users[socket.id]) {
       const senderName = users[socket.id].name; // Get the user's name
       const senderLanguage = users[socket.id].language; // Get the sender's language
+      const messageId = generateMessageId(); // Generate a unique ID for the message
+
+      // Store the message in the messages array for the room
+      messages[roomId].push({ id: messageId, message, sender: senderName });
 
       // Emit the original message to the room
       io.to(roomId).emit("receive-message", {
         message,
         sender: senderName,
         senderLanguage,
+        id: messageId, // Send message ID to the client
+      });
+    }
+  });
+
+  // Handle editing a message
+  socket.on("edit-message", (data) => {
+    const { roomId, messageId, updatedMessage } = data;
+
+    // Find the message in the room's message array
+    const message = messages[roomId].find((msg) => msg.id === messageId);
+    if (message) {
+      message.message = updatedMessage; // Update the message content
+      // Emit the updated message to all clients in the room
+      io.to(roomId).emit("message-edited", {
+        messageId,
+        newMessage: updatedMessage,
       });
     }
   });
