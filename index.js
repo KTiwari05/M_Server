@@ -84,17 +84,22 @@ io.on("connection", (socket) => {
   });
 
   // Handle editing a message
-  socket.on("edit-message", (data) => {
+  // Handle editing a message
+  socket.on("edit-message", async (data) => {
     const { roomId, messageId, updatedMessage } = data;
 
     // Find the message in the room's message array
     const message = messages[roomId].find((msg) => msg.id === messageId);
     if (message) {
       message.message = updatedMessage; // Update the message content
-      // Emit the updated message to all clients in the room
+
+      const senderLanguage = users[socket.id].language; // Get sender's language
+
+      // Emit the updated message to all clients in the room, including the sender's language
       io.to(roomId).emit("message-edited", {
         messageId,
         newMessage: updatedMessage,
+        senderLanguage, // Send the sender's language
       });
     }
   });
